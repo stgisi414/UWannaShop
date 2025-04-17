@@ -1,0 +1,112 @@
+Product Requirements Document (PRD) - Revised
+1. Product Name:
+Express Store International
+
+2. Product Purpose:
+To provide a modern, high-performance international e-commerce Single Page Application (SPA) built on the PERN stack (PostgreSQL, Express.js, React, Node.js). The platform will offer a seamless user experience featuring efficient Browse, secure checkout, and an advanced, integrated Gemini-powered customer service chatbot leveraging real-time application context for superior support.
+
+3. Target Audience:
+
+Global consumers seeking a fluid, app-like online shopping experience.
+Users comfortable with modern web interfaces built with React.
+Customers valuing immediate, intelligent, and context-aware support.
+4. Detailed Functional Requirements:
+
+4.1 User Account Management (API + React Frontend):
+4.1.1 Registration: Secure API endpoint (/api/auth/register) for local registration (email/password). Passwords hashed via bcrypt (integrated with Passport.js). React form component using shadcn/ui inputs/button.
+4.1.2 Login: API endpoints (/api/auth/local, /api/auth/google, /api/auth/facebook, etc.) managed by Passport.js strategies. Secure session/token handling for SPA authentication state management in React (e.g., Context API or Zustand/Redux). React login form components.
+4.1.3 Profile Management: Secure API endpoints (/api/user/profile) for fetching/updating user data (addresses, etc.). React components for profile display and editing using shadcn/ui forms.
+4.1.4 Password Reset: Secure API endpoints and corresponding React components for password reset flow (token generation, email sending, password update).
+4.2 Product Catalog & Browse (API + React Frontend):
+4.2.1 View Products: API endpoint (/api/products) supporting filtering, sorting, pagination, and search (leveraging Drizzle ORM querying capabilities on PostgreSQL). React components dynamically fetching and displaying products using cards, grids (styled with Tailwind CSS). Implement client-side routing for categories/search results.
+4.2.2 Product Details: API endpoint (/api/products/:id) for individual product data. React component for dedicated product detail view (using client-side routing /products/:id).
+4.2.3 Inventory Display: API provides real-time stock status; React components display this information clearly.
+4.3 Shopping Cart (API + React Frontend):
+4.3.1 Add to Cart: API endpoint (/api/cart) to add/update items. React components update client-side state (React Context/Zustand/Redux) and call API to persist changes server-side (linked to user session/account). Visual feedback using shadcn/ui Toasts or similar.
+4.3.2 View Cart: API endpoint to fetch cart contents. Dedicated React component/route (/cart) displaying items, quantities, totals using shadcn/ui Tables or custom layout.
+4.3.3 Update Cart: Functionality within the cart component to change quantity/remove items, triggering client-state updates and API calls.
+4.3.4 Cart Persistence: Primarily managed server-side via API, linked to user session/account in PostgreSQL via Drizzle.
+4.4 Checkout & Payment (API + React Frontend):
+4.4.1 Multi-step Checkout Form: React components (using shadcn/ui Stepper, Forms) for collecting shipping/billing addresses and selecting shipping options via API calls (/api/shipping-options).
+4.4.2 Payment Processing: Integration with Stripe using official React libraries (@stripe/react-stripe-js). Securely handle Stripe Elements in the frontend, tokenize payment information, send token to backend API (/api/checkout/charge) for server-side payment processing.
+4.4.3 Order Summary: React component displaying final order summary before payment confirmation.
+4.5 Order Management (API + React Frontend):
+4.5.1 Order Confirmation: API (/api/orders) creates order in PostgreSQL (via Drizzle). React frontend displays confirmation view/modal upon successful API response. Trigger backend email notification.
+4.5.2 Order History: Secure API endpoint (/api/orders/me) to fetch user's order history. React component in user profile section (/profile/orders) displaying past orders and statuses.
+4.6 Administration (API + React Frontend - Potentially Separate App):
+4.6.1 Admin Interface: Secure React application/section with role-based access control (using dedicated API endpoints with auth middleware).
+4.6.2 Product Management: API endpoints (/api/admin/products) and React components for CRUD operations on products in PostgreSQL (via Drizzle). Include image uploads (e.g., to S3 or similar, managed via backend).
+4.6.3 Order Fulfillment: API endpoints (/api/admin/orders) and React components for viewing orders and updating statuses.
+4.6.4 User Management: API endpoints (/api/admin/users) and React components for viewing/managing user accounts.
+4.7 Referral System (API + React Frontend):
+4.7.1 Tracking: Backend API logic and PostgreSQL schema (using Drizzle) to generate/track referral codes/links associated with users. API endpoints (/api/referrals) for management.
+4.7.2 Rewards: Backend logic to apply rewards based on successful referrals. React components may display referral info/status to users.
+4.8 Gemini-Powered Customer Service Chatbot (API + React Frontend):
+4.8.1 Accessibility: Reusable React chatbot component (using shadcn/ui Dialog/Popover, Input, Button, ScrollArea; styled with Tailwind; Lucide React icons) accessible consistently (e.g., floating action button).
+4.8.2 Instruction Data: Backend API (/api/chatbot) fetches product info, prices, company details from PostgreSQL via Drizzle ORM as needed to instruct Gemini. Cache this data where appropriate.
+4.8.3 Contextual Data Injection:
+The React chatbot component (or a shared context/store) gathers relevant frontend state: current route (react-router), user authentication status, cart contents (from state), potentially recent UI interactions or errors stored in state.
+This frontend context is sent as JSON payload to the /api/chatbot endpoint.
+The backend endpoint combines the received frontend context with server-side context (e.g., user details from Passport.js session req.user).
+Formats the combined context + instructional data into a structured JSON prompt for the Gemini API.
+4.8.4 Query Handling: Chatbot answers questions on products, pricing, orders (may need internal API calls from chatbot endpoint to /api/orders/me if necessary), account issues, company policies, and context-specific queries ("Why is item X in my cart showing out of stock?").
+4.8.5 Guidance: Provide guidance on navigating the SPA and using its features.
+4.8.6 Escalation: Clear option within the chatbot UI to request human support (e.g., provides contact info or triggers a notification).
+5. Non-Functional Requirements:
+
+5.1 Performance:
+API: Average response time < 300ms (P95 < 600ms) for typical requests under load.
+Frontend (React): Lighthouse performance score > 90. LCP < 2.5s, INP < 200ms. Optimized bundle sizes (code splitting). Efficient state management to prevent unnecessary re-renders.
+Chatbot: End-to-end response time < 5 seconds average.
+Database: Efficient Drizzle ORM queries, appropriate PostgreSQL indexing. Connection pooling implemented.
+Scalability: API designed to be scalable (potentially stateless), PostgreSQL allows vertical/horizontal scaling. Target handling [Specify Target, e.g., 500] concurrent users.
+5.2 Security:
+Authentication: Secure implementation using Passport.js (strong hashing, appropriate strategies). Robust session/token management (e.g., secure HttpOnly cookies for sessions, or secure handling of JWTs if used).
+Authorization: Role-based access control for admin APIs and potentially user-specific data access.
+Input Validation: Use libraries like Zod for validating API request bodies/params/query strings (integrate with Drizzle/Express). Sanitize output where necessary (though React typically handles XSS).
+ORM Security: Drizzle ORM helps prevent SQL injection.
+API Security: HTTPS enforced, CORS properly configured, rate limiting implemented (e.g., express-rate-limit), relevant security headers (Helmet.js).
+Secrets Management: Secure handling of API keys, database credentials, session secrets (environment variables, vault).
+Dependencies: Regularly scan dependencies for vulnerabilities.
+5.3 Usability:
+Interface: Modern, clean, responsive UI built with React, Tailwind CSS, and shadcn/ui components. Consistent design language.
+Navigation: Intuitive client-side routing (react-router) and clear information architecture.
+Accessibility: Target WCAG 2.1 Level AA compliance. Use semantic HTML, ARIA attributes where needed, ensure keyboard navigation and screen reader compatibility. Test with accessibility tools.
+Feedback: Clear visual feedback for user actions, loading states (spinners/skeletons), and error messages (using shadcn/ui Toasts/Alerts).
+Chatbot: Natural language interaction, easy-to-use interface.
+5.4 Scalability:
+Architecture: PERN stack provides a good foundation. Design Express API endpoints to be potentially stateless. PostgreSQL scales better than SQLite. Utilize database connection pooling. Consider containerization (Docker) for deployment.
+Frontend: Code splitting per route/feature in React. Efficient state management.
+5.5 Reliability:
+Uptime: Target 99.9%+ uptime for API and frontend hosting.
+Error Handling: Graceful error handling in both Express API (middleware) and React frontend (Error Boundaries, try/catch in async functions). Meaningful logging.
+Database: Regular automated backups of PostgreSQL database. Consider point-in-time recovery options.
+5.6 Maintainability:
+Codebase: Strongly typed using TypeScript across backend and frontend. Consistent code style enforced (ESLint, Prettier).
+Structure: Well-organized project structure (e.g., feature-based or layer-based). Modular components (React) and services/controllers (Express).
+Testing: Implement unit tests (e.g., Vitest/Jest), integration tests (e.g., Supertest for API, React Testing Library for components), and potentially end-to-end tests (e.g., Playwright/Cypress).
+Documentation: API documentation (e.g., Swagger/OpenAPI). Code comments where necessary. README files.
+6. Assumptions and Constraints:
+
+Team proficiency in the specified PERN stack, Drizzle ORM, Passport.js, Tailwind/shadcn/ui, React state management, TypeScript, and API design.
+Reliance on third-party services (Stripe, Google, Facebook, Gemini API, email provider, hosting) and their associated costs/limits/availability.
+Initial chatbot scope prioritizes information retrieval and guidance over transactional capabilities.
+Adoption of shadcn/ui implies using its CLI and component structure.
+7. Success Criteria:
+
+Successful launch of the PERN-based SPA with all core e-commerce features functional.
+Gemini chatbot integrated, operational, and demonstrably using context (React state + session data).
+User satisfaction (measured via surveys/feedback) with the overall platform usability and chatbot assistance > 75%.
+Chatbot handles >50% of common support queries without requiring escalation within 3 months post-launch.
+Achieve target e-commerce conversion rate [Specify Target, e.g., 2.5%].
+API error rates below 0.1%; frontend JS error rate below 0.05%.
+Passing security review/audit with no critical or high-severity findings.
+Achieve target performance metrics (Lighthouse scores, API response times).
+8. Release Planning (Example):
+
+Phase 1 (Foundation & Auth API): Project setup (PERN + TS + Drizzle + Tailwind/shadcn), PostgreSQL schema design/migration, Passport.js setup (local), core User/Auth API endpoints. Basic React setup with routing.
+Phase 2 (Core E-commerce API & Frontend): Product/Cart/Order API endpoints. React components for Product Listing, Product Detail, Cart View. Client-side state management for cart.
+Phase 3 (Checkout & User Profile): Implement Stripe API integration and React checkout flow components. Build User Profile API endpoints and React components (Order History, Address Management). Add OAuth providers.
+Phase 4 (Admin Interface): Develop secure Admin API endpoints and corresponding React interface for product, order, and user management.
+Phase 5 (Chatbot Integration): Develop /api/chatbot endpoint, implement context gathering/passing logic. Build React chatbot component using shadcn/ui. Implement instruction feeding. Integrate Referral System API/UI.
+Phase 6 (Testing, Optimization & Launch): Comprehensive testing (Unit, Integration, E2E, UAT), performance optimization, accessibility review, security hardening, deployment, monitoring setup. Iterate based on feedback.
