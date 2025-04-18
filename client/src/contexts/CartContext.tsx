@@ -1,4 +1,4 @@
-import { createContext, useContext, ReactNode } from "react";
+import { createContext, useContext, ReactNode, useState } from "react";
 import { useCart } from "@/hooks/use-cart";
 import { CartItem } from "@/hooks/use-cart";
 
@@ -31,7 +31,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   } = useCart();
 
   // State for cart visibility
-  const [isOpen, setIsOpen] = React.useState(false);
+  const [isOpen, setIsOpen] = useState(false);
 
   const openCart = () => setIsOpen(true);
   const closeCart = () => setIsOpen(false);
