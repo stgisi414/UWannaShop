@@ -599,7 +599,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // Verify the event came from Stripe
       const signature = req.headers["stripe-signature"];
-      const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+      const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET || "";
       
       if (endpointSecret && signature) {
         event = stripe.webhooks.constructEvent(

@@ -7,11 +7,12 @@ import {
   type OrderItem, type InsertOrderItem, type Address, type InsertAddress,
   type Referral, type InsertReferral
 } from "@shared/schema";
-import { db } from "./db";
+import { db, pool } from "./db";
 import { eq, and, like, desc, inArray, isNull, or, gt, lt, between, sql } from "drizzle-orm";
 import session from "express-session";
-import connectPg from "connect-pg-simple";
+import * as connectPgModule from "connect-pg-simple";
 
+const connectPg = connectPgModule.default || connectPgModule;
 const PostgresSessionStore = connectPg(session);
 
 // Define the storage interface
@@ -72,7 +73,7 @@ export interface IStorage {
   trackReferral(referralId: number, userId: number): Promise<boolean>;
   
   // Session store
-  sessionStore: session.SessionStore;
+  sessionStore: any;
 }
 
 export interface GetProductsOptions {
