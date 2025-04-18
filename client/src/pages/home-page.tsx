@@ -44,7 +44,7 @@ const HomePage = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="md:flex md:items-center md:justify-between">
             <div className="md:w-1/2 md:pr-8">
-              <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">Summer Collection 2023</h1>
+              <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">Summer Collection 2025</h1>
               <p className="mt-3 text-lg">Discover our latest products with worldwide shipping and special discounts.</p>
               <div className="mt-6">
                 <Link href="/shop">
@@ -181,7 +181,7 @@ const HomePage = () => {
               <div className="max-w-xl mx-auto sm:mx-0">
                 <h2 className="text-3xl font-extrabold text-white tracking-tight sm:text-4xl">Summer Sale Ends Soon!</h2>
                 <p className="mt-4 text-xl text-gray-300">
-                  Get up to 50% off on selected items. Use promo code SUMMER2023 at checkout.
+                  Get up to 50% off on selected items. Use promo code SUMMER2025 at checkout.
                 </p>
                 <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4 mt-8 justify-center sm:justify-start">
                   <Link href="/shop?filter=sale">
