@@ -60,8 +60,8 @@ const HomePage = () => {
               <div className="relative w-full max-w-md">
                 <div className="absolute -inset-1 bg-gradient-to-r from-pink-600 to-purple-600 rounded-lg blur opacity-25"></div>
                 <img 
-                  src="https://images.unsplash.com/photo-1609766857041-ed2f37fa6b53?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80" 
-                  alt="Men's summer collection" 
+                  src="https://images.unsplash.com/photo-1567401893414-76b7b1e5a7a5?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80" 
+                  alt="Summer collection products" 
                   className="relative w-full h-auto rounded-lg shadow-2xl object-cover" 
                 />
               </div>
