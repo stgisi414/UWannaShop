@@ -57,12 +57,12 @@ const HomePage = () => {
               </div>
             </div>
             <div className="md:w-1/2 flex justify-center md:justify-end mt-8 md:mt-0">
-              <div className="relative w-full max-w-md">
+              <div className="relative w-full max-w-md aspect-square">
                 <div className="absolute -inset-1 bg-gradient-to-r from-pink-600 to-purple-600 rounded-lg blur opacity-25"></div>
                 <img 
                   src="https://v3.fal.media/files/panda/67zbphze_uLZx-x_HiazX.jpeg" 
                   alt="Summer collection products" 
-                  className="relative w-full h-auto rounded-lg shadow-2xl object-cover" 
+                  className="relative w-full h-full rounded-lg shadow-2xl object-cover" 
                 />
               </div>
             </div>
@@ -125,7 +125,7 @@ const HomePage = () => {
               </Button>
             </div>
           </div>
-          
+
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-y-10 gap-x-6">
             {productsLoading ? (
               Array(4).fill(0).map((_, index) => (
@@ -143,7 +143,7 @@ const HomePage = () => {
               <p className="col-span-4 text-center text-gray-500 py-12">No featured products found.</p>
             )}
           </div>
-          
+
           <div className="mt-8 text-center">
             <Link href="/shop">
               <Button variant="outline" className="inline-flex items-center">
@@ -162,7 +162,7 @@ const HomePage = () => {
             <h2 className="text-3xl font-extrabold text-gray-900">Why Shop With Us</h2>
             <p className="mt-4 text-xl text-gray-600">We prioritize customer satisfaction with our premium services.</p>
           </div>
-          
+
           <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
             <div className="text-center">
               <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-primary bg-opacity-10 text-primary mb-4">
@@ -171,7 +171,7 @@ const HomePage = () => {
               <h3 className="text-lg font-medium text-gray-900">Free Shipping</h3>
               <p className="mt-2 text-sm text-gray-500">Free shipping on all orders over $50</p>
             </div>
-            
+
             <div className="text-center">
               <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-green-500 bg-opacity-10 text-green-500 mb-4">
                 <ShieldCheck className="h-6 w-6" />
@@ -179,7 +179,7 @@ const HomePage = () => {
               <h3 className="text-lg font-medium text-gray-900">Secure Payments</h3>
               <p className="mt-2 text-sm text-gray-500">Protected by industry-leading security</p>
             </div>
-            
+
             <div className="text-center">
               <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-amber-500 bg-opacity-10 text-amber-500 mb-4">
                 <RefreshCw className="h-6 w-6" />
@@ -187,7 +187,7 @@ const HomePage = () => {
               <h3 className="text-lg font-medium text-gray-900">Easy Returns</h3>
               <p className="mt-2 text-sm text-gray-500">30-day easy return policy</p>
             </div>
-            
+
             <div className="text-center">
               <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-green-500 bg-opacity-10 text-green-500 mb-4">
                 <HeadphonesIcon className="h-6 w-6" />
