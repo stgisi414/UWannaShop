@@ -46,12 +46,14 @@ const HomePage = () => {
             <div className="md:w-1/2 space-y-6">
               <h1 className="text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">Summer Collection 2025</h1>
               <p className="mt-3 text-lg text-gray-100">Discover our latest products with worldwide shipping and special discounts.</p>
-              <div className="mt-8">
-                <Link href="/shop">
-                  <Button variant="secondary" size="lg" className="bg-white text-primary hover:bg-gray-100 font-medium">
-                    Shop Now
-                  </Button>
-                </Link>
+              <div className="md:w-1/2 flex justify-center md:justify-end mt-8 md:mt-0">
+                <div className="relative w-full max-w-md">
+                  <Link href="/shop">
+                    <Button variant="secondary" size="lg" className="bg-white text-primary hover:bg-gray-100 font-medium">
+                      Shop Now
+                    </Button>
+                 </Link>
+                </div>
               </div>
             </div>
             <div className="md:w-1/2 flex justify-center md:justify-end mt-8 md:mt-0">
@@ -213,7 +215,7 @@ const HomePage = () => {
                       Browse Sale
                     </Button>
                   </Link>
-                  <Button variant="outline" className="text-white border-white hover:bg-white hover:bg-opacity-10">
+                  <Button variant="outline" className="text-white bg-black border-white hover:bg-white hover:text-white hover:bg-opacity-10">
                     Learn More
                   </Button>
                 </div>

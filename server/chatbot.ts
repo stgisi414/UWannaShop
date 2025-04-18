@@ -9,7 +9,7 @@ let geminiModel: GenerativeModel | null = null;
 if (process.env.GEMINI_API_KEY) {
   try {
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    geminiModel = genAI.getGenerativeModel({ model: "gemini-pro" });
+    geminiModel = genAI.getGenerativeModel({ model: "gemini-2.0-flash-thinking-exp-01-21" });
     console.log('Gemini AI client initialized successfully');
   } catch (error) {
     console.error('Failed to initialize Gemini API client:', error);
