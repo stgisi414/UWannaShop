@@ -1,49 +1,45 @@
 import { Request, Response } from 'express';
+import type { Express } from 'express';
+import { GoogleGenerativeAI, GenerativeModel } from '@google/generative-ai';
 import { storage } from './storage';
 
-// This would be replaced with the real Gemini API client
-// but for now we'll simulate it
-interface GeminiClient {
-  generateContent(prompt: string): Promise<GeminiResponse>;
-}
+// Initialize Gemini API client
+let geminiModel: GenerativeModel | null = null;
 
-interface GeminiResponse {
-  text(): Promise<string>;
-}
-
-class MockGeminiClient implements GeminiClient {
-  async generateContent(prompt: string): Promise<GeminiResponse> {
-    // Simple logic to generate a response based on the prompt
-    let response = "I'm sorry, I don't have enough context to answer that question.";
-    
-    const promptLower = prompt.toLowerCase();
-    
-    if (promptLower.includes('shipping') || promptLower.includes('delivery')) {
-      response = "We offer free shipping on all orders over $50. Standard delivery takes 3-5 business days, while express shipping (available for an additional fee) takes 1-2 business days.";
-    } else if (promptLower.includes('return') || promptLower.includes('refund')) {
-      response = "Our return policy allows you to return items within 30 days of delivery for a full refund. Please visit our Returns page or contact customer service for assistance.";
-    } else if (promptLower.includes('payment') || promptLower.includes('payment method')) {
-      response = "We accept all major credit cards (Visa, Mastercard, American Express, Discover), PayPal, and Apple Pay for payment.";
-    } else if (promptLower.includes('order') && promptLower.includes('status')) {
-      response = "I can see you have an active order. Your order #12345 is currently being processed and should ship within 24 hours. Would you like more details?";
-    } else if (promptLower.includes('cart')) {
-      response = "Based on your current session, you have 2 items in your cart: Wireless Headphones ($129.99) and Smart Watch Series 6 ($249.99). Your cart total is $379.98. Would you like to proceed to checkout?";
-    } else if (promptLower.includes('product') || promptLower.includes('headphone') || promptLower.includes('watch')) {
-      response = "We have several top-rated electronics products including our bestselling Wireless Headphones ($129.99) which feature 30-hour battery life and noise cancellation. Would you like me to recommend similar products?";
-    }
-    
-    return {
-      text: async () => response
-    };
+if (process.env.GEMINI_API_KEY) {
+  try {
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    geminiModel = genAI.getGenerativeModel({ model: "gemini-pro" });
+    console.log('Gemini AI client initialized successfully');
+  } catch (error) {
+    console.error('Failed to initialize Gemini API client:', error);
   }
+} else {
+  console.warn('GEMINI_API_KEY not provided. Chatbot will use fallback responses.');
 }
 
-// In production, this would be initialized with actual API credentials
-const geminiClient = process.env.GEMINI_API_KEY 
-  ? null // Real client would be initialized here
-  : new MockGeminiClient();
+// Fallback responses for when the API is not available
+const getFallbackResponse = (message: string): string => {
+  const promptLower = message.toLowerCase();
+  
+  if (promptLower.includes('shipping') || promptLower.includes('delivery')) {
+    return "We offer free shipping on all orders over $50. Standard delivery takes 3-5 business days, while express shipping (available for an additional fee) takes 1-2 business days.";
+  } else if (promptLower.includes('return') || promptLower.includes('refund')) {
+    return "Our return policy allows you to return items within 30 days of delivery for a full refund. Please visit our Returns page or contact customer service for assistance.";
+  } else if (promptLower.includes('payment') || promptLower.includes('payment method')) {
+    return "We accept all major credit cards (Visa, Mastercard, American Express, Discover), PayPal, and Apple Pay for payment.";
+  } else if (promptLower.includes('order') && promptLower.includes('status')) {
+    return "To check your order status, please log in to your account and visit the Orders section. If you need further assistance, our customer service team is available 24/7.";
+  } else if (promptLower.includes('cart')) {
+    return "You can view your cart by clicking on the cart icon in the top right corner of the page. From there, you can modify quantities or proceed to checkout.";
+  } else if (promptLower.includes('product') || promptLower.includes('electronics')) {
+    return "We have a wide selection of products across various categories. You can browse our catalog from the main shop page or use the search function to find specific items.";
+  }
+  
+  return "I'm here to help with questions about our products, shipping, returns, and more. How can I assist you today?";
+};
 
-export const setupChatbotEndpoint = (app: Express.Application) => {
+export const setupChatbotEndpoint = (app: express.Application) => {
   app.post('/api/chatbot', async (req: Request, res: Response) => {
     try {
       // Extract the user's message and frontend context from the request
@@ -78,7 +74,7 @@ export const setupChatbotEndpoint = (app: Express.Application) => {
             };
           }
         }
-      } else if (req.session.id) {
+      } else if (req.session?.id) {
         // For non-authenticated users, use session ID to get cart info
         const cart = await storage.getCart(null, req.session.id);
         if (cart) {
@@ -121,13 +117,21 @@ export const setupChatbotEndpoint = (app: Express.Application) => {
         Don't mention that you're looking at JSON data, instead respond naturally as if you had this knowledge.
       `;
       
-      // Call Gemini API (or mock for development)
-      if (!geminiClient) {
-        return res.status(503).json({ error: 'Chatbot service is currently unavailable' });
-      }
+      let responseText: string;
       
-      const geminiResponse = await geminiClient.generateContent(prompt);
-      const responseText = await geminiResponse.text();
+      // Use Gemini API if available, otherwise use fallback responses
+      if (geminiModel) {
+        try {
+          const result = await geminiModel.generateContent(prompt);
+          const response = await result.response;
+          responseText = response.text();
+        } catch (geminiError) {
+          console.error('Gemini API error:', geminiError);
+          responseText = getFallbackResponse(message);
+        }
+      } else {
+        responseText = getFallbackResponse(message);
+      }
       
       // Return the response to the client
       res.json({ 

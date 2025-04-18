@@ -63,7 +63,7 @@ const Header = () => {
           <div className="flex">
             <div className="flex-shrink-0 flex items-center">
               <Link href="/" className="flex items-center">
-                <span className="text-primary text-xl font-bold">Express<span className="text-secondary">Store</span></span>
+                <span className="text-primary text-xl font-bold">Express<span className="text-secondary bg-black">Store</span></span>
               </Link>
             </div>
             <nav className="hidden sm:ml-6 sm:flex sm:space-x-8">
