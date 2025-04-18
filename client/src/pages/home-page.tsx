@@ -40,8 +40,8 @@ const HomePage = () => {
   return (
     <>
       {/* Hero Section */}
-      <section className="bg-gradient-to-r from-slate-900 via-primary to-green-700 text-white py-16 sm:py-20 mb-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section className="bg-gradient-to-r from-slate-900 via-primary to-green-700 text-white py-16 sm:py-20 mb-12 relative overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-8">
             <div className="md:w-1/2 space-y-6">
               <h1 className="text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">Summer Collection 2025</h1>
@@ -72,14 +72,35 @@ const HomePage = () => {
       <section className="mb-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-6">Shop by Category</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             {categoriesLoading ? (
               Array(4).fill(0).map((_, index) => (
-                <div key={index} className="aspect-w-1 aspect-h-1 animate-pulse rounded-lg bg-gray-200"></div>
+                <div key={index} className="aspect-square animate-pulse rounded-lg bg-gray-200"></div>
               ))
             ) : categories && categories.length > 0 ? (
               categories.slice(0, 4).map(category => (
-                <CategoryCard key={category.id} category={category} />
+                <div key={category.id} className="relative overflow-hidden rounded-lg shadow-md transition-all hover:shadow-lg">
+                  <Link href={`/shop?categorySlug=${category.slug}`}>
+                    <div className="group cursor-pointer h-full">
+                      <div className="aspect-square bg-gray-200 rounded-lg overflow-hidden">
+                        {category.image ? (
+                          <img 
+                            src={category.image || `https://placehold.co/600x600?text=${category.name}`}
+                            alt={category.name} 
+                            className="w-full h-full object-center object-cover group-hover:scale-105 transition-transform duration-300" 
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                            <span className="text-gray-500 font-medium">{category.name}</span>
+                          </div>
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent flex items-end p-4">
+                          <h3 className="text-lg font-medium text-white">{category.name}</h3>
+                        </div>
+                      </div>
+                    </div>
+                  </Link>
+                </div>
               ))
             ) : (
               <p className="col-span-4 text-center text-gray-500 py-12">No categories found.</p>
