@@ -40,26 +40,29 @@ const HomePage = () => {
   return (
     <>
       {/* Hero Section */}
-      <section className="bg-gradient-to-r from-primary to-green-500 text-white py-8 sm:py-12 mb-8">
+      <section className="bg-gradient-to-r from-slate-900 via-primary to-green-700 text-white py-16 sm:py-20 mb-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col md:flex-row md:items-center gap-8">
-            <div className="flex-1">
-              <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">Summer Collection 2025</h1>
-              <p className="mt-3 text-lg">Discover our latest products with worldwide shipping and special discounts.</p>
-              <div className="mt-6">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-8">
+            <div className="md:w-1/2 space-y-6">
+              <h1 className="text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">Summer Collection 2025</h1>
+              <p className="mt-3 text-lg text-gray-100">Discover our latest products with worldwide shipping and special discounts.</p>
+              <div className="mt-8">
                 <Link href="/shop">
-                  <Button variant="secondary" className="bg-white text-primary hover:bg-gray-100">
+                  <Button variant="secondary" size="lg" className="bg-white text-primary hover:bg-gray-100 font-medium">
                     Shop Now
                   </Button>
                 </Link>
               </div>
             </div>
-            <div className="flex-1">
-              <img 
-                src="https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80" 
-                alt="Summer collection products" 
-                className="w-full h-auto rounded-lg shadow-xl" 
-              />
+            <div className="md:w-1/2 flex justify-center md:justify-end mt-8 md:mt-0">
+              <div className="relative w-full max-w-md">
+                <div className="absolute -inset-1 bg-gradient-to-r from-pink-600 to-purple-600 rounded-lg blur opacity-25"></div>
+                <img 
+                  src="https://images.unsplash.com/photo-1567401893414-76b7b1e5a7a5?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80" 
+                  alt="Summer collection products" 
+                  className="relative w-full h-auto rounded-lg shadow-2xl object-cover" 
+                />
+              </div>
             </div>
           </div>
         </div>
