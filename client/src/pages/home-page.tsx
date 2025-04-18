@@ -40,10 +40,10 @@ const HomePage = () => {
   return (
     <>
       {/* Hero Section */}
-      <section className="bg-gradient-to-r from-primary to-green-500 text-white py-12 mb-8">
+      <section className="bg-gradient-to-r from-primary to-green-500 text-white py-8 sm:py-12 mb-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="md:flex md:items-center md:justify-between">
-            <div className="md:w-1/2 md:pr-8">
+          <div className="flex flex-col md:flex-row md:items-center gap-8">
+            <div className="flex-1">
               <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">Summer Collection 2025</h1>
               <p className="mt-3 text-lg">Discover our latest products with worldwide shipping and special discounts.</p>
               <div className="mt-6">
@@ -54,11 +54,11 @@ const HomePage = () => {
                 </Link>
               </div>
             </div>
-            <div className="mt-8 md:mt-0 md:w-1/2">
+            <div className="flex-1">
               <img 
                 src="https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80" 
                 alt="Summer collection products" 
-                className="rounded-lg shadow-xl" 
+                className="w-full h-auto rounded-lg shadow-xl" 
               />
             </div>
           </div>
