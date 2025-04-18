@@ -40,36 +40,25 @@ const HomePage = () => {
   return (
     <>
       {/* Hero Section */}
-      <section className="relative overflow-hidden bg-black mb-8">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/90 to-green-500/90 mix-blend-multiply"></div>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
-          <div className="grid lg:grid-cols-2 gap-12 items-center min-h-[600px] py-16">
-            <div className="text-white space-y-8">
-              <h1 className="text-5xl sm:text-6xl font-bold tracking-tight leading-tight">
-                Summer Collection<br />2025
-              </h1>
-              <p className="text-xl text-white/90 max-w-lg">
-                Discover our latest products with worldwide shipping and special discounts.
-              </p>
-              <div className="flex gap-4">
+      <section className="bg-gradient-to-r from-primary to-green-500 text-white py-8 sm:py-12 mb-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col md:flex-row md:items-center gap-8">
+            <div className="flex-1">
+              <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">Summer Collection 2025</h1>
+              <p className="mt-3 text-lg">Discover our latest products with worldwide shipping and special discounts.</p>
+              <div className="mt-6">
                 <Link href="/shop">
-                  <Button size="lg" variant="secondary" className="bg-white text-primary hover:bg-gray-100">
+                  <Button variant="secondary" className="bg-white text-primary hover:bg-gray-100">
                     Shop Now
-                  </Button>
-                </Link>
-                <Link href="/categories">
-                  <Button size="lg" variant="outline" className="border-white text-white hover:bg-white/10">
-                    Browse Categories
                   </Button>
                 </Link>
               </div>
             </div>
-            <div className="relative">
-              <div className="absolute -inset-4 bg-white/10 rounded-2xl blur-2xl"></div>
+            <div className="flex-1">
               <img 
                 src="https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80" 
                 alt="Summer collection products" 
-                className="relative w-full h-auto rounded-xl shadow-2xl" 
+                className="w-full h-auto rounded-lg shadow-xl" 
               />
             </div>
           </div>
