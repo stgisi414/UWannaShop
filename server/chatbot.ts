@@ -39,7 +39,7 @@ const getFallbackResponse = (message: string): string => {
   return "I'm here to help with questions about our products, shipping, returns, and more. How can I assist you today?";
 };
 
-export const setupChatbotEndpoint = (app: express.Application) => {
+export const setupChatbotEndpoint = (app: Express) => {
   app.post('/api/chatbot', async (req: Request, res: Response) => {
     try {
       // Extract the user's message and frontend context from the request
@@ -123,8 +123,7 @@ export const setupChatbotEndpoint = (app: express.Application) => {
       if (geminiModel) {
         try {
           const result = await geminiModel.generateContent(prompt);
-          const response = await result.response;
-          responseText = response.text();
+          responseText = result.response.text();
         } catch (geminiError) {
           console.error('Gemini API error:', geminiError);
           responseText = getFallbackResponse(message);
