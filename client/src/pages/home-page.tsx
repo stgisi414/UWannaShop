@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import ProductCard from '@/components/ProductCard';
 import CategoryCard from '@/components/CategoryCard';
+import DealSection from '@/components/DealSection';
 import { apiRequest } from '@/lib/queryClient';
 import { Product, Category } from '@shared/schema';
 
@@ -110,6 +111,9 @@ const HomePage = () => {
           </div>
         </div>
       </section>
+
+      {/* Web Scraped Deals Section */}
+      <DealSection />
 
       {/* Featured Products Section */}
       <section className="mb-16">

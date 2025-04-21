@@ -7,6 +7,8 @@ import {
 } from '@shared/schema';
 import { scrypt, randomBytes } from 'crypto';
 import { promisify } from 'util';
+import { getDeals } from './services/scraper';
+import { generateSlug } from './utils';
 
 const scryptAsync = promisify(scrypt);
 
@@ -137,6 +139,38 @@ async function seed() {
   });
   
   console.log('Admin user created');
+  
+  // Seed products from web scraping
+  try {
+    console.log('Fetching and seeding products from web scraping...');
+    
+    // Get scraped deals
+    const scrapedDeals = await getDeals();
+    
+    // Add rating property to each scraped product
+    const scrapedProductsWithRating = scrapedDeals.map(product => ({
+      ...product,
+      rating: (Math.random() * (5 - 3.8) + 3.8).toFixed(1), // Random rating between 3.8 and 5.0
+    }));
+    
+    // Insert the scraped products
+    const insertedScrapedProducts = await db.insert(products).values(scrapedProductsWithRating).returning();
+    console.log(`Added ${insertedScrapedProducts.length} products from web scraping`);
+    
+    // Associate scraped products with the Electronics category
+    const scrapedProductCategoryAssociations = insertedScrapedProducts.map(product => ({
+      productId: product.id,
+      categoryId: insertedCategories[0].id // Electronics category
+    }));
+    
+    await db.insert(productCategories).values(scrapedProductCategoryAssociations);
+    console.log(`Created ${scrapedProductCategoryAssociations.length} product-category associations for scraped products`);
+  
+  } catch (error) {
+    console.error('Error seeding scraped products:', error);
+    // Continue with seeding process even if scraping fails
+  }
+  
   console.log('Database seeding completed successfully');
 }
 

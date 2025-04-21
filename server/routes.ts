@@ -22,6 +22,8 @@ const stripe = new Stripe(stripeApiKey, {
   apiVersion: "2023-10-16",
 });
 
+import { getDeals } from './services/scraper';
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Set up authentication
   setupAuth(app);
@@ -92,6 +94,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(featuredProducts);
     } catch (error) {
       next(error);
+    }
+  });
+
+  // Deals endpoint - fetches scraped deals
+  app.get("/api/products/deals", async (req, res, next) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 5;
+      // Get deals from the scraper service
+      const dealProducts = await getDeals();
+      
+      // Only return the requested number of deals
+      const limitedDeals = dealProducts.slice(0, limit);
+      
+      res.json(limitedDeals);
+    } catch (error) {
+      console.error('Error fetching deals:', error);
+      // If there's an error, return an empty array rather than failing
+      res.json([]);
     }
   });
   
