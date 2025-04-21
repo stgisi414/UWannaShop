@@ -150,7 +150,7 @@ async function seed() {
     // Add rating property to each scraped product
     const scrapedProductsWithRating = scrapedDeals.map(product => ({
       ...product,
-      rating: (Math.random() * (5 - 3.8) + 3.8).toFixed(1), // Random rating between 3.8 and 5.0
+      rating: parseFloat((Math.random() * (5 - 3.8) + 3.8).toFixed(1)), // Random rating between 3.8 and 5.0
     }));
     
     // Insert the scraped products

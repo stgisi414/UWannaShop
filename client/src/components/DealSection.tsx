@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Product } from '@shared/schema';
+import { Product, Category } from '@shared/schema';
 import { Link } from 'wouter';
 import { Loader2, AlertTriangle } from 'lucide-react';
 import ProductCard from './ProductCard';
@@ -11,6 +11,11 @@ const DealSection = () => {
   const { data: deals, isLoading, error } = useQuery<Product[]>({
     queryKey: ['/api/products/deals'],
     staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+  
+  // Get categories for reference
+  const { data: categories } = useQuery<Category[]>({
+    queryKey: ['/api/categories'],
   });
 
   if (isLoading) {
@@ -45,15 +50,22 @@ const DealSection = () => {
             <h2 className="text-3xl font-bold text-gray-900">Today's Best Deals</h2>
             <p className="text-gray-600 mt-2">Discover the latest deals scraped from top retailers</p>
           </div>
-          <Link href="/shop">
-            <a className="text-primary hover:underline font-medium">View all deals</a>
+          <Link href="/shop" className="text-primary hover:underline font-medium">
+            View all deals
           </Link>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {deals.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
+          {deals.map((product) => {
+            // Convert the original product to one that includes proper category objects
+            const enhancedProduct = {
+              ...product,
+              // Create a pseudo-categories array with the Electronics category object
+              categories: categories ? [categories.find(c => c.id === 1) || categories[0]] : undefined
+            };
+            
+            return <ProductCard key={product.id} product={enhancedProduct} />;
+          })}
         </div>
       </div>
     </section>
