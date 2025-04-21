@@ -103,7 +103,9 @@ export const setupChatbotEndpoint = (app: Express) => {
       };
       
       // Format into a structured prompt for Gemini API
+      const currentDate = new Date().toISOString();
       const prompt = `
+        Current time: ${currentDate}
         You are an AI assistant for Express Store International, an e-commerce store. 
         Answer the following query from a customer using the context provided.
         
@@ -123,7 +125,25 @@ export const setupChatbotEndpoint = (app: Express) => {
       if (geminiModel) {
         try {
           const result = await geminiModel.generateContent(prompt);
-          responseText = result.response.text();
+          const rawResponse = result.response.text();
+          
+          // Extract JSON from the response if it's wrapped in markdown code blocks
+          const extractJsonFromResponse = (text: string): string => {
+            const firstBrace = text.indexOf('{');
+            const lastBrace = text.lastIndexOf('}');
+            if (firstBrace !== -1 && lastBrace !== -1) {
+              const jsonStr = text.slice(firstBrace, lastBrace + 1);
+              try {
+                const parsed = JSON.parse(jsonStr);
+                return parsed.response || jsonStr;
+              } catch (e) {
+                return jsonStr;
+              }
+            }
+            return text;
+          };
+          
+          responseText = extractJsonFromResponse(rawResponse);
         } catch (geminiError) {
           console.error('Gemini API error:', geminiError);
           responseText = getFallbackResponse(message);
