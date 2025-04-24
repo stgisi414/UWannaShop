@@ -255,66 +255,281 @@ export function transformRakutenDataToDbProducts(rakutenProductList: RakutenItem
 }
 
 /**
- * Fetches products from Rakuten and syncs them (creates/updates) in the local database.
+ * Syncs products from Rakuten API to the database using upsert logic.
+ * Checks if a product with the same supplierSku exists. Updates if found, creates if not.
+ * @param queryParams Parameters for the Rakuten API search.
  */
 export async function syncRakutenProductsToDatabase(queryParams: Record<string, string | number> = { keyword: 'gadgets' }) {
-  console.log('Starting Rakuten product synchronization...');
-  const startTime = Date.now();
-
-  const rakutenProducts = await fetchProductsFromRakutenAPI(queryParams);
-  if (!rakutenProducts || rakutenProducts.length === 0) {
-    console.log('No products fetched from Rakuten API. Sync finished.');
+  console.log("Starting Rakuten product sync...");
+  const rakutenItems = await fetchProductsFromRakutenAPI(queryParams);
+  if (!rakutenItems || rakutenItems.length === 0) {
+    console.log("No products fetched from Rakuten API. Sync finished.");
     return;
   }
 
-  const dbProducts = transformRakutenDataToDbProducts(rakutenProducts);
-  if (dbProducts.length === 0) {
-    console.log('No valid products transformed. Sync finished.');
-    return;
-  }
+  const dbProducts = transformRakutenDataToDbProducts(rakutenItems).filter(p => p !== null) as InsertProduct[];
+  console.log(`Transformed ${dbProducts.length} Rakuten products for database sync.`);
 
   let createdCount = 0;
   let updatedCount = 0;
-  let errorCount = 0;
-
-  console.log(`Attempting to sync ${dbProducts.length} products...`);
+  let skippedCount = 0;
 
   for (const product of dbProducts) {
     if (!product.supplierSku) {
-        console.warn('Skipping product due to missing supplierSku:', product.name);
-        errorCount++;
+        console.warn("Skipping product due to missing supplierSku:", product.name);
+        skippedCount++;
         continue;
     }
     try {
       const existingProduct = await storage.getProductBySupplierSku(product.supplierSku);
 
       if (existingProduct) {
-        // Product exists, update it (only update relevant fields like price, description, image)
-        const { slug, supplierSku, ...updateData } = product; // Exclude slug and sku from update payload
-        await storage.updateProductBySupplierSku(product.supplierSku, {
-            ...updateData, // Only update fields that might change
-            price: product.price,
-            description: product.description,
-            image: product.image,
-            // Don't overwrite inventory unless Rakuten provides it
-        });
+        // Update existing product
+        // Only update fields that might change: price, inventory, description, image, etc.
+        // Keep slug, createdAt, etc.
+        const updateData: Partial<InsertProduct> = {
+          name: product.name,
+          description: product.description,
+          price: product.price,
+          originalPrice: product.originalPrice,
+          image: product.image,
+          inventory: product.inventory, // Update inventory if provided by API
+          categoryId: product.categoryId, // Update category if needed
+        };
+        // We need the ID to update, so fetch it first or modify update logic
+        await storage.updateProduct(existingProduct.id, updateData);
+        // OR use updateProductBySupplierSku if implemented
+        // await storage.updateProductBySupplierSku(product.supplierSku, updateData);
         updatedCount++;
-        // console.log(`Updated product: ${product.name} (SKU: ${product.supplierSku})`);
+        console.log(`Updated product (SKU: ${product.supplierSku}): ${product.name}`);
       } else {
-        // Product does not exist, create it
+        // Create new product
         await storage.createProduct(product);
         createdCount++;
-        // console.log(`Created new product: ${product.name} (SKU: ${product.supplierSku})`);
+        console.log(`Created new product (SKU: ${product.supplierSku}): ${product.name}`);
       }
     } catch (error) {
-      console.error(`Error syncing product ${product.name} (SKU: ${product.supplierSku}):`, error);
-      errorCount++;
+      console.error(`Error syncing product (SKU: ${product.supplierSku}): ${product.name}`, error);
+      skippedCount++;
     }
   }
 
-  const duration = (Date.now() - startTime) / 1000;
-  console.log(
-    `Rakuten product synchronization finished in ${duration.toFixed(2)}s. ` +
-    `Created: ${createdCount}, Updated: ${updatedCount}, Errors: ${errorCount}`
-  );
+  console.log(`Rakuten product sync finished. Created: ${createdCount}, Updated: ${updatedCount}, Skipped: ${skippedCount}`);
 }
+
+// --- Wholesale2B API Integration ---
+
+// Environment Variables (Load from .env or config)
+const WHOLESALE2B_API_KEY = process.env.WHOLESALE2B_API_KEY || config.wholesale2b?.apiKey;
+// Example: Adjust endpoint based on Wholesale2B documentation for product catalog
+const WHOLESALE2B_API_ENDPOINT = process.env.WHOLESALE2B_API_ENDPOINT || config.wholesale2b?.productApiEndpoint || 'https://api.wholesale2b.com/v1/products'; // Example endpoint
+
+// Interface for Wholesale2B API Product Item (Hypothetical - adjust based on actual API response)
+interface Wholesale2BItem {
+  sku: string; // Supplier SKU
+  product_name: string;
+  description: string;
+  wholesale_price?: number; // Price you pay
+  msrp?: number; // Suggested retail price
+  map_price?: number; // Minimum advertised price
+  images: string[]; // Array of image URLs
+  stock_quantity?: number;
+  category?: string; // Wholesale2B category name
+  // Add other fields as needed (e.g., brand, weight, dimensions)
+}
+
+/**
+ * Fetches products from the Wholesale2B API.
+ * @param queryParams Parameters for the Wholesale2B API (e.g., { limit: 100, category: 'electronics' })
+ * @returns Raw product data array from Wholesale2B API.
+ */
+export async function fetchProductsFromWholesale2BAPI(queryParams: Record<string, string | number> = { limit: 50 }): Promise<Wholesale2BItem[]> {
+  if (!WHOLESALE2B_API_KEY) {
+    console.error('Wholesale2B API Key (WHOLESALE2B_API_KEY) is not configured.');
+    if (!config.wholesale2b?.apiKey) {
+        console.error("Check your config file (e.g., server/config.ts) or .env for WHOLESALE2B_API_KEY.");
+    }
+    return [];
+  }
+  if (!WHOLESALE2B_API_ENDPOINT) {
+      console.error('Wholesale2B API Endpoint (WHOLESALE2B_API_ENDPOINT) is not configured.');
+      if (!config.wholesale2b?.productApiEndpoint) {
+          console.error("Check your config file (e.g., server/config.ts) or .env for WHOLESALE2B_API_ENDPOINT.");
+      }
+      return [];
+  }
+
+
+  const configAxios = {
+    headers: {
+      // Adjust authorization based on Wholesale2B documentation (e.g., 'Authorization': `Bearer ${WHOLESALE2B_API_KEY}`)
+      'X-Api-Key': WHOLESALE2B_API_KEY,
+    },
+    params: queryParams,
+  };
+
+  try {
+    console.log(`Fetching products from Wholesale2B API with params: ${JSON.stringify(queryParams)}`);
+    // Adjust response structure based on actual API (e.g., response.data.products)
+    const response = await axios.get<{ products: Wholesale2BItem[] }>(WHOLESALE2B_API_ENDPOINT, configAxios);
+
+    if (response.status === 200 && response.data && response.data.products) {
+      console.log(`Successfully fetched ${response.data.products.length} items from Wholesale2B.`);
+      return response.data.products;
+    } else {
+      console.error('Wholesale2B API returned unexpected response:', response.status, response.data);
+      return [];
+    }
+  } catch (error) {
+    if (error instanceof AxiosError) {
+      console.error(`Error fetching from Wholesale2B API: ${error.message}`, {
+        status: error.response?.status,
+        data: error.response?.data,
+        config: error.config ? { url: error.config.url, params: error.config.params, headers: 'Headers hidden' } : undefined,
+      });
+    } else {
+      console.error('An unexpected error occurred while fetching from Wholesale2B API:', error);
+    }
+    return [];
+  }
+}
+
+/**
+ * Transforms Wholesale2B product data into the database schema format.
+ * @param w2bProductList Array of raw product data from Wholesale2B API.
+ * @returns Array of products formatted for database insertion/update.
+ */
+export function transformWholesale2BDataToDbProducts(w2bProductList: Wholesale2BItem[]): InsertProduct[] {
+  return w2bProductList.map((w2bItem): InsertProduct | null => {
+    if (!w2bItem || !w2bItem.sku || !w2bItem.product_name || !(w2bItem.msrp || w2bItem.map_price || w2bItem.wholesale_price)) {
+        console.warn('Skipping Wholesale2B item due to missing essential data (SKU, Name, or Price):', w2bItem);
+        return null; // Skip items with missing essential data
+    }
+
+    const imageUrl = w2bItem.images && w2bItem.images.length > 0 ? w2bItem.images[0] : undefined;
+
+    // Determine the selling price. Prioritize MAP, then MSRP, then wholesale price + markup (e.g., 30%)
+    let sellingPrice = 0;
+    if (w2bItem.map_price && w2bItem.map_price > 0) {
+      sellingPrice = w2bItem.map_price;
+    } else if (w2bItem.msrp && w2bItem.msrp > 0) {
+      sellingPrice = w2bItem.msrp;
+    } else if (w2bItem.wholesale_price && w2bItem.wholesale_price > 0) {
+      sellingPrice = w2bItem.wholesale_price * 1.3; // Example: 30% markup on wholesale
+    } else {
+       console.warn(`Skipping W2B item ${w2bItem.sku} due to zero or missing price fields.`);
+       return null; // Skip if no valid price can be determined
+    }
+     sellingPrice = parseFloat(sellingPrice.toFixed(2)); // Ensure 2 decimal places
+
+
+    // TODO: Implement category mapping from w2bItem.category to your database category IDs
+    const categoryId = 1; // Default to 'Electronics' or map based on w2bItem.category
+
+    return {
+      name: w2bItem.product_name,
+      slug: generateSlug(`${w2bItem.product_name}-${w2bItem.sku}`), // Append SKU to slug for uniqueness
+      description: w2bItem.description || w2bItem.product_name, // Use name if description is empty
+      price: sellingPrice,
+      originalPrice: (w2bItem.msrp && w2bItem.msrp > sellingPrice) ? w2bItem.msrp : undefined, // Show MSRP as original if higher than selling price
+      image: imageUrl,
+      inventory: w2bItem.stock_quantity ?? 0, // Use provided stock or default to 0
+      featured: false, // Default
+      isNew: true, // Default
+      supplierSku: w2bItem.sku, // Map Wholesale2B SKU
+      // categories: [categoryId], // Assign category ID - Enable if using productCategories join table
+      categoryId: categoryId // Assuming direct categoryId link based on schema.ts
+    };
+  }).filter(p => p !== null) as InsertProduct[]; // Filter out nulls from skipped items
+}
+
+
+/**
+ * Syncs products from Wholesale2B API to the database using upsert logic.
+ * Checks if a product with the same supplierSku exists. Updates if found, creates if not.
+ * @param queryParams Parameters for the Wholesale2B API product fetch.
+ */
+export async function syncWholesale2BProductsToDatabase(queryParams: Record<string, string | number> = { limit: 50 }) {
+  console.log("Starting Wholesale2B product sync...");
+  const w2bItems = await fetchProductsFromWholesale2BAPI(queryParams);
+  if (!w2bItems || w2bItems.length === 0) {
+    console.log("No products fetched from Wholesale2B API. Sync finished.");
+    return;
+  }
+
+  const dbProducts = transformWholesale2BDataToDbProducts(w2bItems);
+  console.log(`Transformed ${dbProducts.length} Wholesale2B products for database sync.`);
+
+  let createdCount = 0;
+  let updatedCount = 0;
+  let skippedCount = 0;
+
+  for (const product of dbProducts) {
+    // The check for supplierSku already happened in the transformer, but double-check just in case.
+    if (!product.supplierSku) {
+        console.warn("Critical Error: Product missing supplierSku during sync phase:", product.name);
+        skippedCount++;
+        continue;
+    }
+    try {
+      const existingProduct = await storage.getProductBySupplierSku(product.supplierSku);
+
+      if (existingProduct) {
+        // Update existing product
+        const updateData: Partial<InsertProduct> = {
+          name: product.name,
+          description: product.description,
+          price: product.price,
+          originalPrice: product.originalPrice,
+          image: product.image,
+          inventory: product.inventory,
+          categoryId: product.categoryId, // Update category if needed
+        };
+        // Use updateProductBySupplierSku for efficiency if available and reliable
+        await storage.updateProductBySupplierSku(product.supplierSku, updateData);
+        updatedCount++;
+        console.log(`Updated product (SKU: ${product.supplierSku}): ${product.name}`);
+      } else {
+        // Create new product
+        await storage.createProduct(product);
+        createdCount++;
+        console.log(`Created new product (SKU: ${product.supplierSku}): ${product.name}`);
+      }
+    } catch (error) {
+      console.error(`Error syncing product (SKU: ${product.supplierSku}): ${product.name}`, error);
+      skippedCount++;
+    }
+  }
+
+  console.log(`Wholesale2B product sync finished. Created: ${createdCount}, Updated: ${updatedCount}, Skipped: ${skippedCount}`);
+}
+
+
+// --- Triggering Sync Functions ---
+/*
+ * It's recommended to run sync functions like syncRakutenProductsToDatabase() and syncWholesale2BProductsToDatabase()
+ * as background jobs or scheduled tasks (e.g., using cron, BullMQ, node-schedule, or a cloud provider's service like AWS Lambda + EventBridge).
+ * This prevents blocking API requests and allows for regular updates.
+ *
+ * Example (using node-schedule):
+ * import schedule from 'node-schedule';
+ *
+ * // Schedule Rakuten sync to run daily at 2 AM
+ * schedule.scheduleJob('0 2 * * *', () => {
+ *   console.log('Running scheduled Rakuten product sync...');
+ *   syncRakutenProductsToDatabase({ keyword: 'electronics', hits: 100 }) // Adjust params as needed
+ *     .catch(error => console.error('Scheduled Rakuten sync failed:', error));
+ * });
+ *
+ * // Schedule Wholesale2B sync to run daily at 3 AM
+ * schedule.scheduleJob('0 3 * * *', () => {
+ *   console.log('Running scheduled Wholesale2B product sync...');
+ *   syncWholesale2BProductsToDatabase({ limit: 200 }) // Adjust params as needed
+ *     .catch(error => console.error('Scheduled Wholesale2B sync failed:', error));
+ * });
+ *
+ * You would typically place this scheduling logic in your main server setup file (e.g., server/index.ts)
+ * after initializing the database and other services.
+ */
+
+// --- End Triggering Sync Functions ---
