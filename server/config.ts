@@ -1,5 +1,10 @@
 import dotenv from 'dotenv';
 import path from 'path';
+import { fileURLToPath } from 'url';
+
+// In ES modules, __dirname is not defined, so we need to create it
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Load .env file from the project root
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
