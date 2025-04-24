@@ -103,9 +103,22 @@ export const setupChatbotEndpoint = (app: Express) => {
       };
       
       // Format into a structured prompt for Gemini API
-      const currentDate = new Date().toISOString();
+      const userTimezone = context?.timezone || 'UTC';
+      const currentDate = new Date();
+      
+      // Format the date according to user's timezone if available
+      const formattedDate = new Intl.DateTimeFormat('en-US', {
+        timeZone: userTimezone,
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: 'numeric',
+        hour12: true,
+      }).format(currentDate);
+      
       const prompt = `
-        Current time: ${currentDate}
+        Current time: ${formattedDate} (${userTimezone})
         You are an AI assistant for Express Store International, an e-commerce store. 
         Answer the following query from a customer using the context provided.
         
@@ -155,7 +168,8 @@ export const setupChatbotEndpoint = (app: Express) => {
       // Return the response to the client
       res.json({ 
         response: responseText,
-        timestamp: new Date()
+        timestamp: new Date(),
+        timezone: userTimezone
       });
     } catch (error) {
       console.error('Chatbot error:', error);

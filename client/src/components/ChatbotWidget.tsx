@@ -62,6 +62,7 @@ const ChatbotWidget = () => {
       const frontendContext = {
         location,
         isAuthenticated: !!user,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, // Get user's timezone
         cart: cart ? {
           itemCount: cart.items.length,
           items: cart.items.map(item => ({
