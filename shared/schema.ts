@@ -82,6 +82,8 @@ export const products = pgTable("products", {
   featured: boolean("featured").default(false),
   isNew: boolean("is_new").default(false),
   rating: real("rating"),
+  supplierSku: text("supplier_sku").unique(),
+  categoryId: integer("category_id").references(() => categories.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

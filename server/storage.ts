@@ -8,8 +8,8 @@ import {
   type Referral, type InsertReferral
 } from "@shared/schema";
 import { db, pool } from "./db";
-import { eq, and, like, desc, inArray, isNull, or, gt, lt, between, sql } from "drizzle-orm";
-import session from "express-session";
+import { eq, and, like, desc, inArray, isNull, or, gt, lt, between, sql, SQL } from "drizzle-orm";
+import session, { type Store } from "express-session";
 import * as connectPgModule from "connect-pg-simple";
 
 const connectPg = connectPgModule.default || connectPgModule;
@@ -29,9 +29,11 @@ export interface IStorage {
   getProducts(options?: GetProductsOptions): Promise<Product[]>;
   getProductById(id: number): Promise<Product | undefined>;
   getProductBySlug(slug: string): Promise<Product | undefined>;
+  getProductBySupplierSku(sku: string): Promise<Product | undefined>;
   getFeaturedProducts(limit?: number): Promise<Product[]>;
   createProduct(product: InsertProduct): Promise<Product>;
   updateProduct(id: number, product: Partial<InsertProduct>): Promise<Product | undefined>;
+  updateProductBySupplierSku(sku: string, product: Partial<InsertProduct>): Promise<Product | undefined>;
   deleteProduct(id: number): Promise<boolean>;
   
   // Category methods
@@ -86,10 +88,10 @@ export interface GetProductsOptions {
   limit?: number;
   offset?: number;
 }
-
 export class DatabaseStorage implements IStorage {
-  sessionStore: session.SessionStore;
-  
+  // Assuming 'Store' will be imported from 'express-session' at the top level
+  sessionStore: Store; 
+
   constructor() {
     this.sessionStore = new PostgresSessionStore({
       pool,
@@ -139,38 +141,34 @@ export class DatabaseStorage implements IStorage {
   
   // Product methods
   async getProducts(options: GetProductsOptions = {}): Promise<Product[]> {
-    let query = db.select().from(products);
+    let baseQuery = db.select().from(products);
+    // Define the type alias based on the initial query
+    type ProductSelectQuery = typeof baseQuery; 
+    const conditions: SQL[] = [];
     
-    // Filter by category
+    // Filter by categoryId
     if (options.categoryId) {
-      const productIds = await db
-        .select({ productId: productCategories.productId })
-        .from(productCategories)
-        .where(eq(productCategories.categoryId, options.categoryId));
-      
+      const productIdsResult = await db.select({ productId: productCategories.productId }).from(productCategories).where(eq(productCategories.categoryId, options.categoryId));
+      const productIds = productIdsResult.map(p => p.productId);
       if (productIds.length > 0) {
-        query = query.where(inArray(products.id, productIds.map(p => p.productId)));
+        conditions.push(inArray(products.id, productIds));
       } else {
         return []; // No products in this category
       }
     }
     
+    // Filter by categorySlug
     if (options.categorySlug) {
-      const [category] = await db
-        .select()
-        .from(categories)
-        .where(eq(categories.slug, options.categorySlug));
+      const [category] = await db.select({ id: categories.id }).from(categories).where(eq(categories.slug, options.categorySlug));
       
       if (category) {
-        const productIds = await db
-          .select({ productId: productCategories.productId })
-          .from(productCategories)
-          .where(eq(productCategories.categoryId, category.id));
+        const productIdsResult = await db.select({ productId: productCategories.productId }).from(productCategories).where(eq(productCategories.categoryId, category.id));
+        const productIds = productIdsResult.map(p => p.productId);
         
         if (productIds.length > 0) {
-          query = query.where(inArray(products.id, productIds.map(p => p.productId)));
+          conditions.push(inArray(products.id, productIds));
         } else {
-          return []; // No products in this category
+          return []; // No products for this category slug
         }
       } else {
         return []; // Category not found
@@ -179,57 +177,50 @@ export class DatabaseStorage implements IStorage {
     
     // Search by name or description
     if (options.search) {
-      query = query.where(
+      conditions.push(
         or(
           like(products.name, `%${options.search}%`),
           like(products.description, `%${options.search}%`)
-        )
+        )! // Added '!' to assert non-null result for or()
       );
     }
     
     // Filter by price range
     if (options.minPrice !== undefined) {
-      query = query.where(gt(products.price, options.minPrice));
+      conditions.push(gt(products.price, options.minPrice));
     }
-    
     if (options.maxPrice !== undefined) {
-      query = query.where(lt(products.price, options.maxPrice));
+      conditions.push(lt(products.price, options.maxPrice));
     }
+
+    // Start final query with assertion
+    let finalQuery = baseQuery as ProductSelectQuery; 
     
-    // Sorting
-    if (options.sort) {
-      switch (options.sort) {
-        case 'price_asc':
-          query = query.orderBy(products.price);
-          break;
-        case 'price_desc':
-          query = query.orderBy(desc(products.price));
-          break;
-        case 'name_asc':
-          query = query.orderBy(products.name);
-          break;
-        case 'name_desc':
-          query = query.orderBy(desc(products.name));
-          break;
-        case 'newest':
-          query = query.orderBy(desc(products.createdAt));
-          break;
-      }
-    } else {
-      // Default sort by newest
-      query = query.orderBy(desc(products.createdAt));
+    // Apply conditions and re-assert type
+    if (conditions.length > 0) {
+      finalQuery = finalQuery.where(and(...conditions)) as ProductSelectQuery; 
     }
+
+    // Apply sorting and re-assert type
+    const sortMap = {
+        'price_asc': products.price,
+        'price_desc': desc(products.price),
+        'name_asc': products.name,
+        'name_desc': desc(products.name),
+        'newest': desc(products.createdAt),
+    };
+    finalQuery = finalQuery.orderBy(sortMap[options.sort ?? 'newest']) as ProductSelectQuery;
     
-    // Pagination
+    // Apply Pagination and re-assert type
     if (options.limit) {
-      query = query.limit(options.limit);
+      finalQuery = finalQuery.limit(options.limit) as ProductSelectQuery;
     }
-    
     if (options.offset) {
-      query = query.offset(options.offset);
+      finalQuery = finalQuery.offset(options.offset) as ProductSelectQuery;
     }
     
-    return await query;
+    // Execute the final query
+    return await finalQuery;
   }
   
   async getProductById(id: number): Promise<Product | undefined> {
@@ -239,6 +230,15 @@ export class DatabaseStorage implements IStorage {
   
   async getProductBySlug(slug: string): Promise<Product | undefined> {
     const [product] = await db.select().from(products).where(eq(products.slug, slug));
+    return product;
+  }
+  
+  async getProductBySupplierSku(sku: string): Promise<Product | undefined> {
+    if (!products.supplierSku) {
+      console.error("Developer Error: 'supplierSku' field is not defined on the 'products' schema object. Make sure it's added in shared/schema.ts");
+      return undefined;
+    }
+    const [product] = await db.select().from(products).where(eq(products.supplierSku, sku));
     return product;
   }
   
@@ -300,10 +300,23 @@ export class DatabaseStorage implements IStorage {
     return updatedProduct;
   }
   
+  async updateProductBySupplierSku(sku: string, productData: Partial<InsertProduct>): Promise<Product | undefined> {
+    if (!products.supplierSku) {
+      console.error("Developer Error: 'supplierSku' field is not defined on the 'products' schema object. Make sure it's added in shared/schema.ts");
+      return undefined;
+    }
+    const [updatedProduct] = await db
+      .update(products)
+      .set({ ...productData, updatedAt: new Date() })
+      .where(eq(products.supplierSku, sku))
+      .returning();
+    return updatedProduct;
+  }
+  
   async deleteProduct(id: number): Promise<boolean> {
     await db.delete(productCategories).where(eq(productCategories.productId, id));
     const result = await db.delete(products).where(eq(products.id, id));
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
   
   // Category methods
@@ -338,7 +351,7 @@ export class DatabaseStorage implements IStorage {
   async deleteCategory(id: number): Promise<boolean> {
     await db.delete(productCategories).where(eq(productCategories.categoryId, id));
     const result = await db.delete(categories).where(eq(categories.id, id));
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
   
   // Cart methods
@@ -365,7 +378,7 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getCartItems(cartId: number): Promise<(CartItem & { product: Product })[]> {
-    return await db
+    const results = await db
       .select({
         id: cartItems.id,
         cartId: cartItems.cartId,
@@ -378,6 +391,9 @@ export class DatabaseStorage implements IStorage {
       .from(cartItems)
       .leftJoin(products, eq(cartItems.productId, products.id))
       .where(eq(cartItems.cartId, cartId));
+
+    // Fix: Filter out items where the product is null due to left join potentially not finding a match
+    return results.filter(item => item.product !== null) as (CartItem & { product: Product })[];
   }
   
   async addItemToCart(itemData: InsertCartItem): Promise<CartItem> {
@@ -397,7 +413,7 @@ export class DatabaseStorage implements IStorage {
       const [updatedItem] = await db
         .update(cartItems)
         .set({
-          quantity: existingItem.quantity + itemData.quantity,
+          quantity: existingItem.quantity + (itemData.quantity ?? 1),
           updatedAt: new Date()
         })
         .where(eq(cartItems.id, existingItem.id))
@@ -429,7 +445,7 @@ export class DatabaseStorage implements IStorage {
     const result = await db
       .delete(cartItems)
       .where(eq(cartItems.id, id));
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
   
   async clearCart(cartId: number): Promise<boolean> {
@@ -583,7 +599,7 @@ export class DatabaseStorage implements IStorage {
     const result = await db
       .delete(addresses)
       .where(eq(addresses.id, id));
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
   
   // Referral methods

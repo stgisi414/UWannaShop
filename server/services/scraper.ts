@@ -1,7 +1,9 @@
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 import * as cheerio from 'cheerio';
-import { InsertProduct } from '../../shared/schema';
+import { InsertProduct, Product } from '@shared/schema';
 import { generateSlug } from '../utils';
+import { storage } from '../storage';
+import { config } from '../config';
 
 // Define the interface for scraped products
 export interface ScrapedProduct {
@@ -133,16 +135,186 @@ export const convertToDbProducts = (products: ScrapedProduct[]): InsertProduct[]
 };
 
 // Main function to get deals
-export const getDeals = async (): Promise<InsertProduct[]> => {
+export const getDeals = async (): Promise<Product[]> => {
   try {
-    // In a real implementation, you would fetch data from multiple sources
-    // const amazonProducts = await scrapeAmazon('https://www.amazon.com/deals');
-    // return convertToDbProducts([...amazonProducts, ...otherSources]);
-    
-    // For demo purposes, use sample data
-    return convertToDbProducts(sampleScrapedDeals);
+    // Fetch products from your database instead of scraping/syncing here
+    const productsFromDb = await storage.getProducts({ limit: 20, sort: 'newest' }); // Example fetch
+    return productsFromDb; // Return products already synced
   } catch (error) {
-    console.error('Error getting deals:', error);
+    console.error('Error getting deals from storage:', error);
     return [];
   }
 };
+
+// --- Rakuten API Integration ---
+
+// Environment Variables (Load from .env or config)
+// Ensure these are set in your environment or config/index.ts
+const RAKUTEN_APP_ID = process.env.RAKUTEN_APP_ID || config.rakuten?.appId;
+const RAKUTEN_AFFILIATE_ID = process.env.RAKUTEN_AFFILIATE_ID || config.rakuten?.affiliateId;
+const RAKUTEN_API_BASE_URL = 'https://app.rakuten.co.jp/services/api/IchibaItem/Search/20170706'; // Example endpoint
+
+// Interface for Rakuten API Item (adjust based on actual response)
+interface RakutenItem {
+  Item: {
+    itemCode: string;
+    itemName: string;
+    itemPrice: number;
+    itemCaption: string;
+    mediumImageUrls?: { imageUrl: string }[];
+    shopName?: string;
+    reviewAverage?: string;
+    // Add other fields you might need
+  };
+}
+
+/**
+ * Fetches products from the Rakuten API.
+ * @param queryParams Parameters for the Rakuten API search (e.g., { keyword: 'electronics', genreId: 101 })
+ * @returns Raw product data array from Rakuten API.
+ */
+export async function fetchProductsFromRakutenAPI(queryParams: Record<string, string | number>): Promise<RakutenItem[]> {
+  if (!RAKUTEN_APP_ID || !RAKUTEN_AFFILIATE_ID) {
+    console.error('Rakuten API credentials (RAKUTEN_APP_ID, RAKUTEN_AFFILIATE_ID) are not configured.');
+    // Attempt to gracefully handle missing config in config file or .env
+    if (!config.rakuten?.appId || !config.rakuten?.affiliateId) {
+        console.error("Check your config file (e.g., server/config.ts) or .env for RAKUTEN_APP_ID and RAKUTEN_AFFILIATE_ID.");
+    }
+    return [];
+  }
+
+  const params = {
+    applicationId: RAKUTEN_APP_ID,
+    affiliateId: RAKUTEN_AFFILIATE_ID,
+    format: 'json',
+    ...queryParams,
+  };
+
+  try {
+    console.log(`Fetching products from Rakuten API with params: ${JSON.stringify(queryParams)}`);
+    const response = await axios.get<{ Items: RakutenItem[] }>(RAKUTEN_API_BASE_URL, { params });
+
+    if (response.status === 200 && response.data && response.data.Items) {
+      console.log(`Successfully fetched ${response.data.Items.length} items from Rakuten.`);
+      return response.data.Items;
+    } else {
+      console.error('Rakuten API returned unexpected response:', response.status, response.data);
+      return [];
+    }
+  } catch (error) {
+    if (error instanceof AxiosError) {
+      console.error(`Error fetching from Rakuten API: ${error.message}`, {
+        status: error.response?.status,
+        data: error.response?.data,
+        config: error.config ? { url: error.config.url, params: error.config.params } : undefined, // Avoid logging sensitive headers
+      });
+    } else {
+      console.error('An unexpected error occurred while fetching from Rakuten API:', error);
+    }
+    return [];
+  }
+}
+
+/**
+ * Transforms Rakuten product data into the database schema format.
+ * @param rakutenProductList Array of raw product data from Rakuten API.
+ * @returns Array of products formatted for database insertion/update.
+ */
+export function transformRakutenDataToDbProducts(rakutenProductList: RakutenItem[]): InsertProduct[] {
+  return rakutenProductList.map((rakutenItem): InsertProduct | null => {
+    const item = rakutenItem.Item;
+    if (!item || !item.itemCode || !item.itemName || !item.itemPrice) {
+        console.warn('Skipping Rakuten item due to missing essential data:', rakutenItem);
+        return null; // Skip items with missing essential data
+    }
+
+    const imageUrl = item.mediumImageUrls && item.mediumImageUrls.length > 0
+      ? item.mediumImageUrls[0].imageUrl.replace('?_ex=128x128', '') // Remove size constraint if present
+      : undefined; // Or provide a default placeholder image URL
+
+    // Basic category mapping (Needs refinement based on your categories and Rakuten's genres)
+    const categoryId = 1; // Default to 'Electronics' or map based on genreId/shopName if available
+
+    return {
+      name: item.itemName,
+      slug: generateSlug(item.itemName + '-' + item.itemCode.split(':')[0]), // Add part of SKU for uniqueness
+      description: item.itemCaption,
+      price: item.itemPrice,
+      // originalPrice: undefined, // Rakuten API might not provide this directly
+      image: imageUrl,
+      inventory: 50, // Default inventory, Rakuten API usually doesn't provide stock level
+      featured: false, // Default
+      isNew: true, // Default
+      // rating: item.reviewAverage ? parseFloat(item.reviewAverage) : undefined, // Optional: Add rating if needed in schema
+      supplierSku: item.itemCode, // Crucial: Map Rakuten's unique identifier
+      // categories: [categoryId], // Assign category ID - enable if your schema uses productCategories join table
+      categoryId: categoryId, // Assign category ID - enable if your schema has categoryId directly on products
+      // Ensure all required fields from InsertProduct are present
+    };
+  }).filter((product): product is InsertProduct => product !== null); // Filter out nulls
+}
+
+/**
+ * Fetches products from Rakuten and syncs them (creates/updates) in the local database.
+ */
+export async function syncRakutenProductsToDatabase(queryParams: Record<string, string | number> = { keyword: 'gadgets' }) {
+  console.log('Starting Rakuten product synchronization...');
+  const startTime = Date.now();
+
+  const rakutenProducts = await fetchProductsFromRakutenAPI(queryParams);
+  if (!rakutenProducts || rakutenProducts.length === 0) {
+    console.log('No products fetched from Rakuten API. Sync finished.');
+    return;
+  }
+
+  const dbProducts = transformRakutenDataToDbProducts(rakutenProducts);
+  if (dbProducts.length === 0) {
+    console.log('No valid products transformed. Sync finished.');
+    return;
+  }
+
+  let createdCount = 0;
+  let updatedCount = 0;
+  let errorCount = 0;
+
+  console.log(`Attempting to sync ${dbProducts.length} products...`);
+
+  for (const product of dbProducts) {
+    if (!product.supplierSku) {
+        console.warn('Skipping product due to missing supplierSku:', product.name);
+        errorCount++;
+        continue;
+    }
+    try {
+      const existingProduct = await storage.getProductBySupplierSku(product.supplierSku);
+
+      if (existingProduct) {
+        // Product exists, update it (only update relevant fields like price, description, image)
+        const { slug, supplierSku, ...updateData } = product; // Exclude slug and sku from update payload
+        await storage.updateProductBySupplierSku(product.supplierSku, {
+            ...updateData, // Only update fields that might change
+            price: product.price,
+            description: product.description,
+            image: product.image,
+            // Don't overwrite inventory unless Rakuten provides it
+        });
+        updatedCount++;
+        // console.log(`Updated product: ${product.name} (SKU: ${product.supplierSku})`);
+      } else {
+        // Product does not exist, create it
+        await storage.createProduct(product);
+        createdCount++;
+        // console.log(`Created new product: ${product.name} (SKU: ${product.supplierSku})`);
+      }
+    } catch (error) {
+      console.error(`Error syncing product ${product.name} (SKU: ${product.supplierSku}):`, error);
+      errorCount++;
+    }
+  }
+
+  const duration = (Date.now() - startTime) / 1000;
+  console.log(
+    `Rakuten product synchronization finished in ${duration.toFixed(2)}s. ` +
+    `Created: ${createdCount}, Updated: ${updatedCount}, Errors: ${errorCount}`
+  );
+}
